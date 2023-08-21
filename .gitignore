@@ -1,0 +1,13 @@
+*.zip
+*.csv
+*.ipynb_checkpoints
+*.RData
+*.Rhistory
+*.code-workspace
+*.vscode
+*.tgz
+*.cmd
+*.symvers
+*.ko
+*.mod
+
