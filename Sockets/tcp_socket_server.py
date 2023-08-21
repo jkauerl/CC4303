@@ -65,7 +65,7 @@ server_socket.listen(3)
 print('... Esperando clientes')
 while True:
     # cuando llega una petición de conexión la aceptamos
-    # y se crea un nuevo socket que se comunicará con el cliente
+    # y se crea un nuevo socket que se comunicnew_socket_addressará con el cliente
     new_socket, new_socket_address = server_socket.accept()
 
     # luego recibimos el mensaje usando la función que programamos
