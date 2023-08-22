@@ -5,7 +5,7 @@ from utils import *
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # definimos dirección donde queremos que correr el server_socket
-server_address = ('localhost', 8000)
+server_address = ('localhost', 9000)
 
 # hacemos bind del server socket a la dirección server_address
 server_socket.bind(server_address)
@@ -26,8 +26,14 @@ while True:
 
     recv_message = new_socket.recv(buff_size)
 
-    print(recv_message)
+    # mensaje = parse_HTTP_message(recv_message)
+    parse_HTTP_message(recv_message)
+
+    # print(mensaje)
+    # print("a")
+    # http = create_HTTP_message(mensaje)
+    # print(http)
 
     # cerramos la conexión
-    # notar que la dirección que se imprime indica un número de puerto distinto al 5000
+    # notar que la dirección que se imprime indica un número de puerto distinto al 8000
     new_socket.close()

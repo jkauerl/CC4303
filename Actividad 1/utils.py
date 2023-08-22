@@ -7,10 +7,23 @@ class HTTP_Message():
 
 # Funcion que decodifica y guarda el mensaje en una lista [head, body]
 def parse_HTTP_message(http_message):
-    decoded_http_message = decoded_http_message.decode()
-    decoded_http_message = http_message.split('\r\n\r\n')
+    # print("test")
+    # print(http_message)
+    http_message = http_message.decode()
+    decoded_http_message = http_message.split("\r\n\r\n")
 
-    parse_HTTP = [decoded_http_message[0] + '\r\n\r\n', decoded_http_message[1]]
+    head = decoded_http_message[0]
+    body = decoded_http_message[1]
+
+    headers = head.split("\r\n")
+    print(head)
+    print(headers)
+    headers_dict = []
+    for i in range(len(headers)):
+        if i == 0:
+            
+    parse_HTTP = [ , ]
+
 
     return  parse_HTTP
 
