@@ -26,13 +26,13 @@ while True:
 
     recv_message = new_socket.recv(buff_size)
 
-    # mensaje = parse_HTTP_message(recv_message)
-    parse_HTTP_message(recv_message)
+    mensaje = parse_HTTP_message(recv_message)
+    # parse_HTTP_message(recv_message)
 
     # print(mensaje)
-    # print("a")
-    # http = create_HTTP_message(mensaje)
-    # print(http)
+    print("a")
+    http = create_HTTP_message(mensaje)
+    print(http)
 
     # cerramos la conexión
     # notar que la dirección que se imprime indica un número de puerto distinto al 8000
