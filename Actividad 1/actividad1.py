@@ -1,11 +1,12 @@
 import socket 
+import json
 from utils import *
 
 # con la siguiente línea creamos un socket orientado a conexión
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # definimos dirección donde queremos que correr el server_socket
-server_address = ('localhost', 8000)
+server_address = ('localhost', 9000)
 
 # hacemos bind del server socket a la dirección server_address
 server_socket.bind(server_address)
@@ -23,9 +24,17 @@ Content-Type: text/html; charset=utf-8
 Content-Length: 145
 Connection: keep-alive
 Access-Control-Allow-Origin: *
-X-ElQuePregunta: Javier Kauer
-
 """
+response_head += "X-ElQuePregunta: "
+
+name_json = input("Ingrese nombre del archivo json: ")
+location_json = input("Ingrese ubicación archivo json: ")
+with open((location_json + "/" + name_json)) as file:
+    # usamos json para manejar los datos
+    data = json.load(file)
+    name_header = data["user"] 
+
+response_head += name_header + "\r\n\r\n"
 
 # luego con listen (función de sockets de python) le decimos que puede
 # tener hasta 3 peticiones de conexión encoladas
@@ -51,6 +60,7 @@ while True:
     print(http)
 
     print("test")
+
     print(response_head + response_body)
 
     http_response = response_head + response_body
