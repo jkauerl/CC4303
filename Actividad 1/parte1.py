@@ -27,9 +27,11 @@ Access-Control-Allow-Origin: *
 """
 response_head += "X-ElQuePregunta: "
 
-name_json = input("Ingrese nombre del archivo json: ")
-location_json = input("Ingrese ubicación archivo json: ")
-with open((location_json + "/" + name_json)) as file:
+#name_json = input("Ingrese nombre del archivo json: ")
+#location_json = input("Ingrese ubicación archivo json: ")
+name_json = "json_actividad_http"
+location_json = "Actividad 1"
+with open((location_json + "/" + name_json) + ".json") as file:
     # usamos json para manejar los datos
     data = json.load(file)
     name_header = data["user"] 
