@@ -3,6 +3,8 @@ from dnslib.dns import CLASS, QTYPE
 import dnslib
 
 def parse_dns_message(message):
-    return DNSRecord.parse(message)
+    parsed_messsage = DNSRecord.parse(message)
 
-def 
+    q = {}
+
+    print(parsed_messsage)
