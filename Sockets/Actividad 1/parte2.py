@@ -78,7 +78,6 @@ while True:
     modified_message_server = replace_forbidden_words(recieved_message_server, location_json, name_json)
 
     send_message_client = create_HTTP_message(modified_message_server)
-    print(send_message_client.decode())
 
     new_socket.send(send_message_client)
 
