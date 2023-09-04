@@ -1,9 +1,34 @@
-""" #  Estructura para almacenar el body y el head de un mensaje http
-class HTTP_Message():
+import json
+import re
 
-    def __init__(self, head, body):
-        self.head = head
-        self.body = body """
+# definimos el path donde se encuentra el archivo que queremos enviar
+path = f"Actividad 1/actividad1.html"
+file = open(path, "r")
+response_body = file.read()
+response_head = """HTTP/1.1 200 OK
+Server: nginx/1.17.0
+Date: Thu, 24 Aug 2023 15:54:05 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 145
+Connection: keep-alive
+Access-Control-Allow-Origin: *
+"""
+response_head += "X-ElQuePregunta: "
+
+forbidden_message = """HTTP/1.1 403 Forbidden
+Content-Type: text/html
+Content-Length: 146
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CC4303</title>
+</head>
+<body>
+    <h1>Forbidden</h1>
+</body>
+</html>"""
 
 # Funcion que decodifica y guarda el mensaje en una lista [head, body]
 def parse_HTTP_message(http_message):
@@ -13,7 +38,7 @@ def parse_HTTP_message(http_message):
     head = decoded_http_message[0]
     body = decoded_http_message[1]
 
-    headers = head.split("\r\n", 1)
+    headers = head.split("\r\n")
     headers_dict = {}
     for i in range(len(headers)):
         if i == 0:
@@ -43,3 +68,34 @@ def create_HTTP_message(parse_HTTP):
     return http_message.encode()
 
  
+def check_blocked_sites(first_line, location_json, name_json):
+    with open((location_json + "/" + name_json + ".json")) as file:
+        # usamos json para manejar los datos
+        data = json.load(file)
+
+        pattern = r'GET (https?://[^\s]+) HTTP/1.1'
+        requested_site = re.search(pattern, first_line)
+
+        for i in data["blocked"]:
+            if i == requested_site.group(1):
+                return 1
+        else:
+            return 0
+
+def replace_forbidden_words(http_message, location_json, name_json):
+    with open((location_json + "/" + name_json + ".json")) as file:
+        # usamos json para manejar los datos
+        data = json.load(file)
+        forbidden_words = data["forbidden_words"]
+        new_body = http_message[1]
+
+        # remplazar las palabras prohibidas
+        for i in forbidden_words:
+            for key, value in i.items():
+                new_body = new_body.replace(key, value)
+
+        # actualizar el tamaño de content-length
+        new_bytes_size = len(new_body.encode('utf-8'))
+        http_message[0]["Content-Length"] = str(new_bytes_size)
+
+        return [http_message[0], new_body]

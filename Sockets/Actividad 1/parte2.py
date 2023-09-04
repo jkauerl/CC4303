@@ -8,38 +8,25 @@ proxy_client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # definimos dirección donde queremos que correr el server_socket
 server_address = ('localhost', 8000)
-proxy_client_address = ('localhost', 8000)
 
 # hacemos bind del server socket a la dirección server_address
 server_socket.bind(server_address)
 
 # parametros para cambiar
 buff_size = 1024 # En bytes
-# definimos el path donde se encuentra el archivo que queremos enviar
-path = f"Actividad 1/actividad1.html"
-file = open(path, "r")
-response_body = file.read()
-response_head = """HTTP/1.1 200 OK
-Server: nginx/1.17.0
-Date: Thu, 24 Aug 2023 15:54:05 GMT
-Content-Type: text/html; charset=utf-8
-Content-Length: 145
-Connection: keep-alive
-Access-Control-Allow-Origin: *
-"""
-response_head += "X-ElQuePregunta: "
 
+
+# Recibe inputs especificos
 #name_json = input("Ingrese nombre del archivo json: ")
 #location_json = input("Ingrese ubicación archivo json: ")
 name_json = "json_actividad_http"
 location_json = "Actividad 1"
 
+name_header = ""
 with open((location_json + "/" + name_json + ".json")) as file:
     # usamos json para manejar los datos
     data = json.load(file)
     name_header = data["user"] 
-
-response_head += name_header + "\r\n\r\n"
 
 # luego con listen (función de sockets de python) le decimos que puede
 # tener hasta 3 peticiones de conexión encoladas
@@ -54,38 +41,50 @@ while True:
     # y se crea un nuevo socket que se comunicará con el cliente
     new_socket, new_socket_address = server_socket.accept()
 
+    # recibiendo el mensaje del cliente
+    recv_message = new_socket.recv(buff_size)
+
+    # parseando el mensaje y rescatando la direccion de destino
+    parsed_message = parse_HTTP_message(recv_message)
+
+    is_forbidden = check_blocked_sites(parsed_message[0]["first_line"], location_json, name_json)
+    if is_forbidden:
+        new_socket.send(forbidden_message.encode())
+        
+        new_socket.close()
+        break
+
+    parsed_message[0].update({"X-ElQuePregunta: ": name_header})
+    parsed_message = [parsed_message[0], parsed_message[1]]
+
+    proxy_client_address = (parsed_message[0]["Host"], 80)
+ 
     # conectandose al servidor desde el proxy
     proxy_client_socket.connect(proxy_client_address)
 
-    # recibiendo el mensaje del cliente
-    recv_message = new_socket.recv(buff_size)
-    print(recv_message)
-
-    message = parse_HTTP_message(recv_message)
-
-    print(message)
-    print("a")
-    http = create_HTTP_message(message)
-    print(http)
-
-    print("test")
-    http_response = response_head + response_body
-    print(http_response)
+    proxy_message = create_HTTP_message(parsed_message)
 
     # Se manda el mensaje al servidor
-    proxy_client_socket.send(http_response.encode())
+    proxy_client_socket.send(proxy_message)
 
     # Finalmente esperamos una respuesta del servidor
     # Para ello debemos definir el tamaño del buffer de recepción
-    buffer_size = 145
-    # problema aca
-    print("test")
-    message = proxy_client_socket.recv(buffer_size)
-    print(message.decode())
-    new_socket.send(message)
+    buffer_size = 10000000
+    message_server = proxy_client_socket.recv(buffer_size)
+
+    # modificar el mensaje para remplazar contenido inadecuado
+    recieved_message_server = parse_HTTP_message(message_server)
+
+    modified_message_server = replace_forbidden_words(recieved_message_server, location_json, name_json)
+
+    send_message_client = create_HTTP_message(modified_message_server)
+    print(send_message_client.decode())
+
+    new_socket.send(send_message_client)
 
     # cerramos la conexión con el servidor
     proxy_client_socket.close()
 
     # cerramos la conexión
     new_socket.close()
+
