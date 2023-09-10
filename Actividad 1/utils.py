@@ -99,3 +99,34 @@ def replace_forbidden_words(http_message, location_json, name_json):
         http_message[0]["Content-Length"] = str(new_bytes_size)
 
         return [http_message[0], new_body]
+    
+def receive_full_message(connection_socket, buff_size):
+    full_message = b''
+    headers_received = False
+    content_length = 0
+
+    while True:
+        recv_message = connection_socket.recv(buff_size)
+        full_message += recv_message
+
+        if not headers_received:
+            # continuamente encontrar el fin de los headers
+            header_end_index = full_message.find(b'\r\n\r\n')
+            if header_end_index != -1:
+                headers_received = True
+
+                # se obtienen los headers como tal
+                headers = full_message[:header_end_index + 4].decode()
+
+                # ahora se busca el valor de content length para saber cuanto 
+                # buscar en el body
+                content_length_match = re.search(r'Content-Length: (\d+)', headers)
+                if content_length_match:
+                    content_length = int(content_length_match.group(1))
+
+        if headers_received:
+            # se verifica que todo el mensaje se ha recibido completamente
+            if len(full_message) - header_end_index - 4 >= content_length:
+                break
+
+    return full_message

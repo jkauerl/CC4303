@@ -13,7 +13,7 @@ server_address = ('localhost', 8000)
 server_socket.bind(server_address)
 
 # parametros para cambiar
-buff_size = 1024 # En bytes
+buff_size = 50 # En bytes
 
 
 # Recibe inputs especificos
@@ -41,8 +41,15 @@ while True:
     # y se crea un nuevo socket que se comunicará con el cliente
     new_socket, new_socket_address = server_socket.accept()
 
-    # recibiendo el mensaje del cliente
-    recv_message = new_socket.recv(buff_size)
+    """ # recibiendo el mensaje del cliente
+    recv_message = new_socket.recv(500000)
+    print("message1")
+    print(recv_message) """
+
+    # version modificada para recibir mensaje del cliente con buffer chico
+    recv_message = receive_full_message(new_socket, buff_size)
+    print("message2")
+    print(recv_message)
 
     # parseando el mensaje y rescatando la direccion de destino
     parsed_message = parse_HTTP_message(recv_message)
@@ -69,7 +76,7 @@ while True:
 
     # Finalmente esperamos una respuesta del servidor
     # Para ello debemos definir el tamaño del buffer de recepción
-    buffer_size = 10000000
+    buffer_size = 50000
     message_server = proxy_client_socket.recv(buffer_size)
 
     # modificar el mensaje para remplazar contenido inadecuado
