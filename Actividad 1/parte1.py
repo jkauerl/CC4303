@@ -6,7 +6,7 @@ from utils import *
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # definimos dirección donde queremos que correr el server_socket
-server_address = ('localhost', 9000)
+server_address = ('localhost', 8000)
 
 # hacemos bind del server socket a la dirección server_address
 server_socket.bind(server_address)
