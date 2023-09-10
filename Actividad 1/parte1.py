@@ -15,10 +15,10 @@ server_socket.bind(server_address)
 buff_size = 1024 # En bytes
 
 
-#name_json = input("Ingrese nombre del archivo json: ")
-#location_json = input("Ingrese ubicación archivo json: ")
-name_json = "json_actividad_http"
-location_json = "Actividad 1"
+name_json = input("Ingrese nombre del archivo json: ")
+location_json = input("Ingrese ubicación archivo json: ")
+#name_json = "json_actividad_http"
+#location_json = "Actividad 1"
 with open((location_json + "/" + name_json) + ".json") as file:
     # usamos json para manejar los datos
     data = json.load(file)
