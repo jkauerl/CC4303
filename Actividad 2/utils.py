@@ -1,9 +1,23 @@
 import socket
-from dnslib import DNSRecord
-from dnslib.dns import CLASS, QTYPE
+from dnslib import DNSRecord, RR
+from dnslib.dns import QTYPE
 import dnslib
+from collections import deque
 
 ip_dns_address = "192.33.4.12"
+max_size = 20
+
+cache = []
+
+insertion_order = deque()
+
+def add_item(item):
+    cache.append(item)
+    insertion_order.append(item)
+    if len(cache) > max_size:
+        # If the list exceeds the maximum size, remove the oldest item
+        oldest_item = insertion_order.popleft()
+        cache.remove(oldest_item)
 
 def send_dns_message(query, ip):
     # Acá ya no tenemos que crear el encabezado porque dnslib lo hace por nosotros, por default pregunta por el tipo A
@@ -12,7 +26,7 @@ def send_dns_message(query, ip):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # lo enviamos, hacemos cast a bytes de lo que resulte de la función pack() sobre el mensaje
-        sock.sendto(bytes(q.pack()), (ip_dns_address, 53))
+        sock.sendto(bytes(q.pack()), (ip, 53))
         # En data quedará la respuesta a nuestra consulta
         data, _ = sock.recvfrom(4096)
         # le pedimos a dnslib que haga el trabajo de parsing por nosotros 
@@ -25,75 +39,48 @@ def send_dns_message(query, ip):
 def parse_dns_message(message):
     parsed_messsage = DNSRecord.parse(message)
 
-    """ header = parsed_messsage.header
-    
-    number_of_query_elements = header.q
-    number_of_answer_elements = header.a
-    number_of_authority_elements = header.auth
-    number_of_additional_elements = header.ar
-
-    q = {}
-
-    q["header"] = [{"ancount": number_of_answer_elements}, 
-                   {"nscount": number_of_authority_elements}, 
-                   {"arcount": number_of_additional_elements}]
-
-    if number_of_query_elements > 0:
-        query = parsed_messsage.get_q()
-        q["question"] = [{"qname": query.qname}]
-    if number_of_answer_elements > 0:
-        answer = parsed_messsage.rr # resource records
-        q["answer"] = answer
-    if number_of_authority_elements  > 0:
-        authority = parsed_messsage.auth
-        q["authority"] = authority
-    if number_of_additional_elements > 0:
-        additional = parsed_messsage.ar  
-        q["additional"] = additional """
-
     return parsed_messsage
 
-def part_b(answer):
-    print("type")
-    print(answer.rr.get_a().rtype)
-    if (answer.rr.get_a().rtype == "A"):
-        return 1
-
-def resolver(mensaje_consulta):
-    
-    print("mensaje consulta")
-    print(mensaje_consulta)
-    parsed_message = parse_dns_message(mensaje_consulta)
-
-    query = parsed_message.q.qname
-    print("qname/query")
-    print(query)
-
-    # parte a
-    answer = send_dns_message(query, ip_dns_address)
-
-    print("answer")
-    print(answer)
-
+def part_b(answer, query, mensaje_consulta, debug, cache= {}):
     # parte b
     if(answer.header.a > 0):
-        if (part_b(answer) == 1):
+        if (answer.get_a().rtype == QTYPE.A):
             return answer
     # parte c
     if(answer.header.auth > 0):
         for j in answer.auth:
             if j.rtype == QTYPE.NS:
                 for i in answer.ar:
-                    if (i.rclass == "A"):
-                        send_dns_message(query, i.ar[0].rdata)
-                        break
-                break
+                    if (i.rclass == QTYPE.A):
+                        response = send_dns_message(query, str(i.rdata))
+                        return response
         else:
-            recursive_name_server = answer.auth[0].rdata
-            print("recursive name server")
-            print(str(recursive_name_server.label).encode())
-            solved_ip_message = resolver(str(recursive_name_server.label).encode())
-            solved_dns_message = send_dns_message(query, solved_ip_message)
-            if (part_b(solved_dns_message) == 1):
-                return solved_dns_message
+            recursive_name_server = str(answer.auth[0].rdata.label)
+            for i in cache:
+                if i.keys == recursive_name_server:
+                    part_b(cache[i], query, mensaje_consulta, debug, cache)
+            question = DNSRecord.question(recursive_name_server)
+            solved_ip_message = resolver(question.pack())
+            add_item({ recursive_name_server: solved_ip_message})
+            if debug:
+                print(("(Debug) '{}' a '{}' con direccion IP '{}'").format(recursive_name_server, question, solved_ip_message))
+            part_b(solved_ip_message, query, mensaje_consulta, debug, cache)
+    return None
+
+def resolver(mensaje_consulta, debug=False, cache=[]):
+    
+    parsed_message = parse_dns_message(mensaje_consulta)
+
+    if cache:
+        print("Se esta usando el cache")    
+
+    query = parsed_message.q.qname
+
+    # parte a
+    answer = send_dns_message(query, ip_dns_address)
+
+    #parte b y c
+    resolver_answer = part_b(answer, query, mensaje_consulta, debug, cache)
+
+    return resolver_answer
 

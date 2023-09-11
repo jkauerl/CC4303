@@ -12,13 +12,9 @@ while(True):
         message, address = dns_socket.recvfrom(4096)
         
         parsed_message = parse_dns_message(message)
-        # print("solved message")
-        # print(parsed_message)
         solved_message = resolver(message)
-        print("solved_message")
-        print(solved_message)
         if (solved_message != None):
-            dns_socket.sendto(solved_message, address)
+            dns_socket.sendto(solved_message.pack(), address)
     except KeyboardInterrupt:
         break
 dns_socket.close()
