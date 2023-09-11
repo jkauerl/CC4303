@@ -41,7 +41,7 @@ def parse_dns_message(message):
 
     return parsed_messsage
 
-def part_b(answer, query, mensaje_consulta, debug, cache= {}):
+def part_b(answer, query, mensaje_consulta, debug, cache= []):
     # parte b
     if(answer.header.a > 0):
         if (answer.get_a().rtype == QTYPE.A):
@@ -72,12 +72,13 @@ def resolver(mensaje_consulta, debug=False, cache=[]):
     parsed_message = parse_dns_message(mensaje_consulta)
 
     if cache:
-        print("Se esta usando el cache")    
+        print("Se esta usando el cache")
 
     query = parsed_message.q.qname
 
     # parte a
     answer = send_dns_message(query, ip_dns_address)
+    print(answer)
 
     #parte b y c
     resolver_answer = part_b(answer, query, mensaje_consulta, debug, cache)
