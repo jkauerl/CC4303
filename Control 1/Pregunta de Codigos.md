@@ -1,0 +1,9 @@
+# Preguntas de Codigos
+
+## Pregunta 1 [HTTP]: Su proxy usa dos buffers distintos, para recibir mensajes de clientes y de servidores. Si el tamaño del segundo buffer se reduce, se cortan los mensajes y se cae el proxy. ¿Porque sucede esto y como lo solucionaria?
+
+Tal como se tiene en el código de "parte2.py", para el segundo buffer se ocupa el método ".recv(buffer_size)". Esto trae problemas si se reduce significativamente el tamaño de "buffer_size" pues causaría que los mensajes se corten al momento de recibirlos desde el servidor. Si se desea usar un buffer size lo más mínimo posible entonces se tiene que hacer el mismo procedimiento que se hizo para recibir un mensaje desde el cliente. En términos de la implementación se invocaría el método ".receive_full_message(proxy_cliente_socket, buff_size)." De esta esta forma el socket busca el header de "content-length" y contruye el mensaje recibiendo con tamaños de buff_size.
+
+## Pregunta 2 [DNS]: La funcion part_b de su resolver toma como input el mensaje de consulta original, pero no se usa en ningun punto, relacione este elemento con su error de ID mismatch. 
+
+La razón de que se obtenga el error de ID mismatch es que no se está recibiendo el mismo mensaje dns como el que se envió originalmente. Además tal como se dice el error se encuentra en la función part_b. Por lo tanto la forma para arreglar este problema es tomando que una vez que se resuelve un dominio de servidor de un mensaje DNS, este resultado se tiene que agregar a la sección de ANSWER del mensaje original de cuando se invoca por primera vez esta función. De esta forma no se obtiene un error de ID mismatch porque se está haciendo una respuesta con el mismo mensaje DNS pero con una parte del mensaje modificado.

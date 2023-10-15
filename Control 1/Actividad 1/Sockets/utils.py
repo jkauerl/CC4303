@@ -95,7 +95,8 @@ def send_full_message(receiver_socket, message, end_of_message, address, receive
         # max_byte indica "hasta que byte" vamos a enviar, lo seteamos para evitar tratar de mandar más de lo que es posible
         max_byte = min(len(message), byte_inicial + receiver_buff_size)
 
-        # obtenemos el trozo de mensaje
+        # obtenemos el trozo de mensajeto
+        
         message_slice = message[byte_inicial: max_byte]
 
         # usamos send_con_perdidas (por default tenemos message_loss_percentage=0 o sea, sin perdida)
