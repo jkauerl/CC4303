@@ -1,0 +1,9 @@
+# Preguntas de Codigos
+
+## Pregunta 1 [Stop and Wait]: Usando su implementación de SocketTCP, si se intenta enviar un mensaje de 16 bytes usando dos recv con tamaño de buffer 10, ocurre que el lado del emisor cree haber enviado con éxito el mensaje, pero desde el lado del receptor se queda pegado tratando de recibir el mensaje aún, ¿por qué ocurre esto, y cómo lo podría solucionar? 
+
+La razón de esto es porque el código se queda esperando de forma infinita o un mensaje (que no va a llegar) o se queda en un loop infinito. Para arreglar lo primero se puede arreglar verificando que cuando se recibe un mensaje, se retorna lo específicado por buff_size y lo resto lo guarda en un cache, para que la segunda invocación agrege el contenido del cache al mensaje y retorne lo necesario. Para la segunda corresponde a chequear que las variables de condiciones, tales como rest o cache estén con los valores correctos una vez finalizados el envió de mensajes por parte del emisor.
+
+## Pregunta 2 [Stop and Wait]: Al intentar recibir con un primer recv de buff_size = 45 la primera parte de un mensaje de un tamaño mucho más grande, su implementación retorna solo un trozo de 16 bytes en vez de recibir los primeros 45 bytes del mensaje, ¿por qué ocurre esto, y cómo lo podría solucionar para que efectivamente retorne una porción de 45 bytes?
+
+La razón por la cual ocurre esto es porque en el caso en que el buff_size es mayor a 16, se retorna directamente el mensaje que se esta recibiendo, y no considera el caso en donde se tiene que almacenar el mensaje mayor a 16 bytes. Por lo tanto para arreglar esto se tiene que crear un loop para poder guardar los valores recibidos en un cache y retornar hasta que se obtenga la cantidad específicada por buff_size. De esta forma se comprueba que se tienen la cantidad de bytes específicada.

@@ -1,8 +1,10 @@
 import socket
 import random
 from socketUDP import SocketUDP
+import slidingWindowCC as swcc
+import timerList as tl
 
-random.seed(6)
+random.seed(3)
 
 udp_buff_size = 18 + 16
 
@@ -98,7 +100,11 @@ class SocketTCP():
                             self.sequence += 2
                             self.destinity_address = destinity_address
                             self.socket.sendto(message.encode(), address)
-                            return                    
+                            return
+                        else:
+                            continue
+                    else:
+                        continue    
             except socket.timeout:
                 continue
 
@@ -148,7 +154,102 @@ class SocketTCP():
                 except socket.timeout:
                     break
 
-    def send(self, message):
+    def send(self, message, mode="stop_and_wait"):
+        if mode == "stop_and_wait":
+            self.send_using_stop_and_wait(message)
+        elif mode == "go_back_n":
+            self.send_using_go_back_n(message)
+
+    def recv(self, buff_size, mode="stop_and_wait"):
+        if mode == "stop_and_wait":
+            return self.recv_using_stop_and_wait(buff_size)
+        elif mode == "go_back_n":
+            return self.recv_using_go_back_n(buff_size)
+    def close(self):
+        # creacion mensaje de cierrte
+        close_message = b"0|||0|||1|||" + (str(self.sequence)).encode() + b"|||"
+
+        tries = 3
+
+        while tries > 0:
+            try:
+                # creacion de timeout
+                self.socket.settimeout(5)
+
+                # envio mensaje de cierre
+                self.socket.sendto(close_message, self.destinity_address)
+
+                # se recibe mensaje de confirmacion de cierre
+                close_confirmation_message, addesss = self.socket.recvfrom(udp_buff_size)
+                parsed_close_confirmation_message = self.parse_segment(close_confirmation_message.decode())
+
+                # se chequea si este mensaje es el correcot
+                if parsed_close_confirmation_message["headers"]["FIN"] == 1:
+                    if parsed_close_confirmation_message["headers"]["ACK"] == 1:
+                        if parsed_close_confirmation_message["headers"]["seq"] == self.sequence + 1:
+                            self.sequence += 2
+                            confirmation_message = b"0|||0|||1|||" + (str(self.sequence)).encode() + b"|||"
+                            internal_tries = 3
+
+                            while internal_tries > 0:
+                                try:
+                                    self.socket.settimeout(5)
+                                    self.socket.sendto(confirmation_message, addesss)
+                                    internal_tries -= 1
+
+                                except socket.timeout:
+                                    internal_tries -= 1
+                                    continue
+                            break
+                            
+
+            except socket.timeout:
+                tries -= 1
+                continue
+
+        self.socket.close()
+
+    def recv_close(self):
+        tries = 3
+
+        while tries > 0:
+            try:
+                self.socket.settimeout(5)
+                # se recibe el mensaje de cierre
+                close_confirmation_message, address = self.socket.recvfrom(udp_buff_size)
+                parsed_close_confirmation_message = self.parse_segment(close_confirmation_message.decode())
+
+                # se verifica si corresponde a un mensaje de cierre y 
+                # si lo es se manda el mensaje de confirmacion y se cierra el socket
+                if parsed_close_confirmation_message["headers"]["FIN"] == 1:
+                    parsed_close_confirmation_message["headers"]["ACK"] = 1
+                    parsed_close_confirmation_message["headers"]["seq"] += 1
+                    
+                    send_confirmation_message = self.create_segment(parsed_close_confirmation_message)
+                    self.sequence += 1
+                    
+                    self.socket.sendto(send_confirmation_message.encode(), address)
+                    tries -= 1
+                    # se recibe el mensaje de cierre
+                    close_confirmation_message, address = self.socket.recvfrom(udp_buff_size)
+                    parsed_close_confirmation_message = self.parse_segment(close_confirmation_message.decode())
+
+                    if parsed_close_confirmation_message["headers"]["seq"] == self.sequence + 1:
+                        self.sequence += 1
+                        break
+                else:
+                        self.sequence += len(parsed_close_confirmation_message["body"])
+                        confirmation_message = b"0|||1|||0|||" + (str(self.sequence)).encode() + b"|||"
+                        self.socket.sendto(confirmation_message, address)
+            
+            except socket.timeout:
+                tries -= 1
+                continue
+
+        self.socket.close()
+            
+        
+    def send_using_stop_and_wait(self, message):
         # primer mensaje que se envia corresponde al largo del mensaje
         message_length = len(message)
 
@@ -216,9 +317,9 @@ class SocketTCP():
                             byte_inicial -= (byte_inicial-len(message))
             
             except socket.timeout:
-                continue
+                continue  
 
-    def recv(self, buff_size):
+    def recv_using_stop_and_wait(self, buff_size):
 
         messages = ""
         # primer mensaje que recibe corresponde al largo del mensaje
@@ -316,87 +417,158 @@ class SocketTCP():
                     
                 except socket.timeout:
                     continue
+            
+    def send_using_go_back_n(self, message):
 
-    def close(self):
-        # creacion mensaje de cierrte
-        close_message = b"0|||0|||1|||" + (str(self.sequence)).encode() + b"|||"
+        message_length = len(message)
 
-        tries = 3
+        split_message = []
+        for i in range(0, len(message), 16):
+            split_message.append(message[i:i + 16])
 
-        while tries > 0:
+        full_message = [message_length] + split_message
+
+
+        window_size = 3
+        if len(full_message) < window_size:
+            window_size = len(full_message)
+
+        window = swcc.SlidingWindowCC(window_size, full_message, self.sequence)
+        window_index = 0
+
+
+        timer_list = tl.TimerList(5, len(full_message)) 
+        timer_index = 0
+
+        while True:
             try:
-                # creacion de timeout
-                self.socket.settimeout(5)
+                # envio de todos los mensajes en la ventana
+                # esto incluye el primer segmento y los segmentos posteriores
+                while window_index < window_size:
 
-                # envio mensaje de cierre
-                self.socket.sendto(close_message, self.destinity_address)
+                    current_segment = window.get_data(window_index)
+                    current_sequence = window.get_sequence_number(window_index)
 
-                # se recibe mensaje de confirmacion de cierre
-                close_confirmation_message, addesss = self.socket.recvfrom(udp_buff_size)
-                parsed_close_confirmation_message = self.parse_segment(close_confirmation_message.decode())
+                    tcp_message = b"0|||0|||0|||" + (str(current_sequence)).encode() + b"|||" + current_segment
+                    self.socket.sendto(tcp_message, self.destinity_address)
 
-                # se chequea si este mensaje es el correcot
-                if parsed_close_confirmation_message["headers"]["FIN"] == 1:
-                    if parsed_close_confirmation_message["headers"]["ACK"] == 1:
-                        if parsed_close_confirmation_message["headers"]["seq"] == self.sequence + 1:
-                            self.sequence += 2
-                            confirmation_message = b"0|||0|||1|||" + (str(self.sequence)).encode() + b"|||"
-                            internal_tries = 3
+                    # se crea el tiemer para el envio del primer segmento
+                    if window_index == 0:
+                        timer_list.start_timer(window_index)
+                        # ojo con el comentario de abajo
+                        # self.socket.setblocking(False)
 
-                            while internal_tries > 0:
-                                try:
-                                    self.socket.settimeout(5)
-                                    self.socket.sendto(confirmation_message, addesss)
-                                    internal_tries -= 1
-
-                                except socket.timeout:
-                                    internal_tries -= 1
-                                    continue
-                            break
-                            
-
-            except socket.timeout:
-                tries -= 1
-                continue
-
-        self.socket.close()
-
-    def recv_close(self):
-        tries = 3
-
-        while tries > 0:
-            try:
-                self.socket.settimeout(5)
-                # se recibe el mensaje de cierre
-                close_confirmation_message, address = self.socket.recvfrom(udp_buff_size)
-                parsed_close_confirmation_message = self.parse_segment(close_confirmation_message.decode())
-
-                # se verifica si corresponde a un mensaje de cierre y 
-                # si lo es se manda el mensaje de confirmacion y se cierra el socket
-                if parsed_close_confirmation_message["headers"]["FIN"] == 1:
-                    parsed_close_confirmation_message["headers"]["ACK"] = 1
-                    parsed_close_confirmation_message["headers"]["seq"] += 1
+                    self.sequence += len(current_segment)
                     
-                    send_confirmation_message = self.create_segment(parsed_close_confirmation_message)
-                    self.sequence += 1
-                    
-                    self.socket.sendto(send_confirmation_message.encode(), address)
-                    tries -= 1
-                    # se recibe el mensaje de cierre
-                    close_confirmation_message, address = self.socket.recvfrom(udp_buff_size)
-                    parsed_close_confirmation_message = self.parse_segment(close_confirmation_message.decode())
+                    window_index += 1
+                        
 
-                    if parsed_close_confirmation_message["headers"]["seq"] == self.sequence + 1:
-                        self.sequence += 1
+                window_index = 0
+                while window_index < window_size:
+                    confirmation_message, _ = self.socket.recvfrom(udp_buff_size)
+                    # si es el primer segmento enviado se para el timeout
+                    if window_index == 0:
+                            timer_list.stop_timer(window_index)
+
+                    while True:
+                        # se parsea el segmento y se obtiene el segmento esperado
+                        parsed_confirmation_message = self.parse_segment(confirmation_message.decode())
+                        
+                        # if window
+                        expected_window_seq = window.get_sequence_number(1)
+                        
+                        if expected_window_seq == None:
+                                    return
+                        # si corresponde mensaje indicado se recibe y se manda un nuevo mensaje
+                        if parsed_confirmation_message["headers"]["ACK"] == 1:
+                            if parsed_confirmation_message["headers"]["seq"] >= expected_window_seq or parsed_confirmation_message["headers"]["seq"] == self.sequence:
+                                
+                                window.move_window(1)
+                                
+                        window_index += 1
                         break
-                else:
-                        self.sequence += len(parsed_close_confirmation_message["body"])
-                        confirmation_message = b"0|||1|||0|||" + (str(self.sequence)).encode() + b"|||"
-                        self.socket.sendto(confirmation_message, address)
-            
-            except socket.timeout:
-                tries -= 1
+
+            except BlockingIOError:
                 continue
 
-        self.socket.close()
+    def recv_using_go_back_n(self, buff_size):
+
+        messages = ""
+        if self.rest == 0:
+            # el primer mensaje corresponde al largo del mensaje
+            recieved_message, _ = self.socket.recvfrom(udp_buff_size)
+            parsed_recieved_message = self.parse_segment(recieved_message.decode())
+
+            self.message_length = int(parsed_recieved_message["body"])
+            self.rest = self.message_length
+
+            self.sequence += len(parsed_recieved_message["body"])
+
+            confirmation_message = b"0|||1|||0|||" + (str(self.sequence)).encode() + b"|||"
+            self.socket.sendto(confirmation_message, self.destinity_address)
+
+        if self.message_length <= buff_size:
+
+            while self.rest > 0:
+                # el segundo mensaje en adeltante corresponde al mensaje en si
+                recieved_message, _ = self.socket.recvfrom(udp_buff_size)
+                parsed_recieved_message = self.parse_segment(recieved_message.decode())
             
+                if parsed_recieved_message["headers"]["seq"] > self.sequence:
+                    continue
+
+                if parsed_recieved_message["headers"]["seq"] == self.sequence:
+                    self.sequence += len(parsed_recieved_message["body"])
+                    self.rest -= len(parsed_recieved_message["body"])
+                    messages += parsed_recieved_message["body"]
+
+                    confirmation_message = b"0|||1|||0|||" + (str(self.sequence)).encode() + b"|||"
+                    self.socket.sendto(confirmation_message, self.destinity_address)
+
+                    if self.rest == 0:                
+                        return  messages.encode()
+                
+        else:
+            messages = ""
+            while True:
+                # recibir un mensaje
+
+                recieved_message, _ = self.socket.recvfrom(udp_buff_size)
+                parsed_recieved_message = self.parse_segment(recieved_message.decode())
+
+                if parsed_recieved_message["headers"]["seq"] > self.sequence:
+                    continue
+
+                # segunda llamada que se hace, se recibe mensaje directamente desde el body
+                if self.rest < self.message_length:
+                    # caso en que ya se tiene guardado los valores
+                    if self.cache != "":
+                        temp = self.cache + parsed_recieved_message["body"]
+                        self.cache = temp[buff_size:]
+                        self.sequence += len(parsed_recieved_message["body"])
+                        self.rest -= len(parsed_recieved_message["body"])
+                        
+                        confirmation_message = b"0|||1|||0|||" + (str(self.sequence)).encode() + b"|||"
+                        self.socket.sendto(confirmation_message, self.destinity_address)
+                        
+                        if len(temp) >= len(self.cache):
+                            return temp[0:buff_size].encode()
+
+                else:
+                    self.rest -= len(parsed_recieved_message["body"])
+                    self.sequence += len(parsed_recieved_message["body"])
+
+                    if len(parsed_recieved_message["body"]) <= buff_size:
+                        self.cache = parsed_recieved_message["body"]
+
+                        confirmation_message = b"0|||1|||0|||" + (str(self.sequence)).encode() + b"|||"
+                        self.socket.sendto(confirmation_message, self.destinity_address)
+                        continue
+
+                    self.cache = parsed_recieved_message["body"][buff_size:]
+                    messages = parsed_recieved_message["body"][0:buff_size]
+
+                    confirmation_message = b"0|||1|||0|||" + (str(self.sequence)).encode() + b"|||"
+                    self.socket.sendto(confirmation_message, self.destinity_address)
+                    return messages.encode()
+                

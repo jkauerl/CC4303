@@ -1,15 +1,20 @@
 import socket
+import sys
 
 
 # creamos el socket cliente (no orientado a conexión)
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-server_address = ('localhost', 5000)
+direction = sys.argv[1]
+port = sys.argv[2]
+
+server_address = (direction, int(port))
 
 message = ""
 while True:
     try:
-        message += input() + '\n'
+        line = input()
+        message += line + '\n'
     except EOFError:
         break
 
@@ -31,6 +36,7 @@ while True:
 
     # Se decodifica el mensaje para agregarle el head tcp y despues de codifica devuelta
     message_tcp = b"0|||0|||0|||" + message_slice
+    print(message_tcp)
 
     # mandamos el mensaje
     client_socket.sendto(message_tcp, server_address)
@@ -47,9 +53,3 @@ while True:
     if (byte_inicial > len(message)):
         byte_inicial -= (byte_inicial-len(message))
     
-
-
-
-
-
-
